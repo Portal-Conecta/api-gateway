@@ -1,0 +1,16 @@
+management:
+  endpoint:
+    health:
+      show-details: never
+
+portal:
+  gateway:
+    security:
+      enabled: ${PORTAL_GATEWAY_SECURITY_ENABLED:true}
+      jwt-secret: ${JWT_SECRET}
+    rate-limit:
+      enabled: ${PORTAL_GATEWAY_RATE_LIMIT_ENABLED:true}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

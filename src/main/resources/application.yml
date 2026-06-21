@@ -1,0 +1,89 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        service: ${spring.application.name}
+        environment: ${PORTAL_ENVIRONMENT:local}
+      rename:
+        logger_name: logger
+  level:
+    org.springframework.cloud.gateway: INFO
+
+spring:
+  application:
+    name: api-gateway
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      connect-timeout: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:2s}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+                allowed-methods: ${ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+                allowed-headers: ${ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Correlation-Id}
+                exposed-headers: X-Correlation-Id
+                allow-credentials: true
+                max-age: 3600
+
+portal:
+  gateway:
+    security:
+      enabled: ${PORTAL_GATEWAY_SECURITY_ENABLED:true}
+      jwt-secret: ${JWT_SECRET:ZGV2LXNlY3JldC1rZXktMzItYnl0ZXMtbWluaW11bS1mb3ItaHMyNTY=}
+      public-paths:
+        - /actuator/health
+        - /actuator/health/**
+        - /actuator/info
+        - /actuator/prometheus
+        - /hub/auth/**
+    rate-limit:
+      enabled: ${PORTAL_GATEWAY_RATE_LIMIT_ENABLED:false}
+      authentication:
+        replenish-rate: ${PORTAL_GATEWAY_AUTH_RATE_LIMIT_REPLENISH_RATE:5}
+        burst-capacity: ${PORTAL_GATEWAY_AUTH_RATE_LIMIT_BURST_CAPACITY:10}
+        requested-tokens: ${PORTAL_GATEWAY_AUTH_RATE_LIMIT_REQUESTED_TOKENS:1}
+      user:
+        replenish-rate: ${PORTAL_GATEWAY_USER_RATE_LIMIT_REPLENISH_RATE:30}
+        burst-capacity: ${PORTAL_GATEWAY_USER_RATE_LIMIT_BURST_CAPACITY:60}
+        requested-tokens: ${PORTAL_GATEWAY_USER_RATE_LIMIT_REQUESTED_TOKENS:1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+    db:
+      enabled: false
+    redis:
+      enabled: ${PORTAL_GATEWAY_REDIS_HEALTH_ENABLED:false}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      service: ${spring.application.name}
