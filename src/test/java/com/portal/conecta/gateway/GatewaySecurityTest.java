@@ -84,6 +84,20 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void allowsHubRefreshRouteWithoutJwt() {
+        webTestClient.post()
+                .uri("/hub/auth/refresh")
+                .header("X-Correlation-Id", "portal-auth-refresh")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("X-Correlation-Id", "portal-auth-refresh")
+                .expectBody()
+                .jsonPath("$.path").isEqualTo("/auth/refresh");
+
+        assertThat(DOWNSTREAM.takeRequest().path()).isEqualTo("/auth/refresh");
+    }
+
+    @Test
     void rejectsProtectedRoutesWhenJwtIsMissing() {
         webTestClient.get()
                 .uri("/checklist/api/checklist-templates")

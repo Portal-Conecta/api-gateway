@@ -138,7 +138,11 @@ class GatewayRoutingTest {
 
     private static Stream<Arguments> routes() {
         return Stream.of(
+                Arguments.of("/hub/auth/login", "/auth/login"),
+                Arguments.of("/hub/auth/refresh", "/auth/refresh"),
                 Arguments.of("/hub/users", "/users"),
+                Arguments.of("/hub/me/courses", "/me/courses"),
+                Arguments.of("/hub/api/v1/notifications", "/api/v1/notifications"),
                 Arguments.of("/checklist/api/checklist-templates", "/api/checklist-templates"),
                 Arguments.of("/mapa/api/mapas", "/api/mapas"),
                 Arguments.of("/comunicados/api/posts", "/api/posts")
