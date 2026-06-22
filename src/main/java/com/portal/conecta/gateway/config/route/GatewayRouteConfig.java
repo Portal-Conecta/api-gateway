@@ -1,105 +1,112 @@
 package com.portal.conecta.gateway.config.route;
 
-import com.portal.conecta.gateway.config.rate.GatewayRateLimitProperties;
-import org.springframework.beans.factory.annotation.Qualifier;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
-import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.RouteLocator;
-import org.springframework.cloud.gateway.route.builder.GatewayFilterSpec;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder.Builder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
 
 /**
- * Centralizes Portal Conecta edge routes so shared filters can be applied
- * consistently without duplicating YAML route blocks.
+ * Registra as rotas externas do Portal Conecta mantendo o padrao dos endpoints
+ * internos dos servicos.
+ *
+ * <p>O gateway remove apenas o primeiro prefixo publico, como {@code /hub} ou
+ * {@code /checklist}, e encaminha o caminho restante sem reescrever contratos
+ * dos servicos.</p>
  */
 @Configuration
 public class GatewayRouteConfig {
 
-    private final GatewayRateLimitProperties rateLimitProperties;
+    private static final int DEFAULT_ORDER = 0;
+    private static final int AUTH_ROUTE_ORDER = -20;
 
-    public GatewayRouteConfig(GatewayRateLimitProperties rateLimitProperties) {
-        this.rateLimitProperties = rateLimitProperties;
+    private final GatewayRateLimitFilterApplier rateLimitFilterApplier;
+
+    /**
+     * Recebe o componente que aplica filtros compartilhados nas rotas.
+     *
+     * @param rateLimitFilterApplier aplicador de `StripPrefix` e rate limit por politica
+     */
+    public GatewayRouteConfig(GatewayRateLimitFilterApplier rateLimitFilterApplier) {
+        this.rateLimitFilterApplier = rateLimitFilterApplier;
     }
 
+    /**
+     * Cria as rotas programaticamente para que filtros compartilhados sejam
+     * aplicados de forma uniforme e dependam das variaveis de ambiente.
+     *
+     * @param routes builder de rotas do Spring Cloud Gateway
+     * @param hubServiceUrl URL interna do Hub Core
+     * @param checklistServiceUrl URL interna do servico de Checklist
+     * @param mapaServiceUrl URL interna do servico de Mapa de Sala
+     * @param comunicadosServiceUrl URL interna do servico de Comunicados
+     * @return localizador de rotas usado pelo gateway em tempo de execucao
+     */
     @Bean
     public RouteLocator portalConectaRoutes(
             RouteLocatorBuilder routes,
-            @Qualifier("userKeyResolver") KeyResolver userKeyResolver,
-            @Qualifier("ipKeyResolver") KeyResolver ipKeyResolver,
             @Value("${HUB_SERVICE_URL:http://localhost:8081}") String hubServiceUrl,
             @Value("${CHECKLIST_SERVICE_URL:http://localhost:8082}") String checklistServiceUrl,
             @Value("${MAPA_SERVICE_URL:http://localhost:8083}") String mapaServiceUrl,
             @Value("${COMUNICADOS_SERVICE_URL:http://localhost:8084}") String comunicadosServiceUrl
     ) {
-        return routes.routes()
-                .route("hub-auth", route -> route
-                        .order(-20)
-                        .path("/hub/auth/**")
-                        .filters(filters -> stripPrefixAndRateLimit(
-                                filters,
-                                rateLimitProperties.getAuthentication(),
-                                ipKeyResolver
-                        ))
-                        .uri(hubServiceUrl))
-                .route("hub", route -> route
-                        .path("/hub/**")
-                        .filters(filters -> stripPrefixAndRateLimit(
-                                filters,
-                                rateLimitProperties.getUser(),
-                                userKeyResolver
-                        ))
-                        .uri(hubServiceUrl))
-                .route("checklist", route -> route
-                        .path("/checklist/**")
-                        .filters(filters -> stripPrefixAndRateLimit(
-                                filters,
-                                rateLimitProperties.getUser(),
-                                userKeyResolver
-                        ))
-                        .uri(checklistServiceUrl))
-                .route("mapa", route -> route
-                        .path("/mapa/**")
-                        .filters(filters -> stripPrefixAndRateLimit(
-                                filters,
-                                rateLimitProperties.getUser(),
-                                userKeyResolver
-                        ))
-                        .uri(mapaServiceUrl))
-                .route("comunicados", route -> route
-                        .path("/comunicados/**")
-                        .filters(filters -> stripPrefixAndRateLimit(
-                                filters,
-                                rateLimitProperties.getUser(),
-                                userKeyResolver
-                        ))
-                        .uri(comunicadosServiceUrl))
-                .build();
+        Builder builder = routes.routes();
+        for (GatewayRouteDefinition routeDefinition : routeDefinitions(
+                hubServiceUrl,
+                checklistServiceUrl,
+                mapaServiceUrl,
+                comunicadosServiceUrl
+        )) {
+            builder.route(routeDefinition.id(), route -> route
+                    .order(routeDefinition.order())
+                    .path(routeDefinition.path())
+                    .filters(filters -> rateLimitFilterApplier.apply(filters, routeDefinition.rateLimitPolicy()))
+                    .uri(routeDefinition.uri()));
+        }
+        return builder.build();
     }
 
-    private GatewayFilterSpec stripPrefixAndRateLimit(
-            GatewayFilterSpec filters,
-            GatewayRateLimitProperties.Policy policy,
-            KeyResolver keyResolver
+    /**
+     * Define o catalogo estatico de rotas publicadas pela borda HTTP.
+     *
+     * @param hubServiceUrl destino configurado para as rotas do Hub
+     * @param checklistServiceUrl destino configurado para as rotas de Checklist
+     * @param mapaServiceUrl destino configurado para as rotas de Mapa de Sala
+     * @param comunicadosServiceUrl destino configurado para as rotas de Comunicados
+     * @return lista imutavel de definicoes de rota do gateway
+     */
+    private List<GatewayRouteDefinition> routeDefinitions(
+            String hubServiceUrl,
+            String checklistServiceUrl,
+            String mapaServiceUrl,
+            String comunicadosServiceUrl
     ) {
-        GatewayFilterSpec filtered = filters.stripPrefix(1);
-
-        if (!rateLimitProperties.isEnabled()) {
-            return filtered;
-        }
-
-        // RedisRateLimiter keeps limits consistent across gateway instances.
-        return filtered.requestRateLimiter()
-                .rateLimiter(RedisRateLimiter.class, config -> config
-                        .setReplenishRate(policy.getReplenishRate())
-                        .setBurstCapacity(policy.getBurstCapacity())
-                        .setRequestedTokens(policy.getRequestedTokens()))
-                .configure(config -> config
-                        .setKeyResolver(keyResolver)
-                        .setStatusCode(HttpStatus.TOO_MANY_REQUESTS)
-                        .setDenyEmptyKey(true));
+        return List.of(
+                new GatewayRouteDefinition(
+                        "hub-auth",
+                        "/hub/auth/**",
+                        hubServiceUrl,
+                        AUTH_ROUTE_ORDER,
+                        RateLimitPolicy.AUTHENTICATION
+                ),
+                new GatewayRouteDefinition("hub", "/hub/**", hubServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER),
+                new GatewayRouteDefinition(
+                        "checklist",
+                        "/checklist/**",
+                        checklistServiceUrl,
+                        DEFAULT_ORDER,
+                        RateLimitPolicy.USER
+                ),
+                new GatewayRouteDefinition("mapa", "/mapa/**", mapaServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER),
+                new GatewayRouteDefinition(
+                        "comunicados",
+                        "/comunicados/**",
+                        comunicadosServiceUrl,
+                        DEFAULT_ORDER,
+                        RateLimitPolicy.USER
+                )
+        );
     }
 }
