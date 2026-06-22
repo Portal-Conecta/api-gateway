@@ -70,9 +70,9 @@ class GatewaySecurityTest {
     }
 
     @Test
-    void allowsHubAuthenticationRoutesWithoutJwt() {
+    void allowsAuthenticationRoutesWithoutJwt() {
         webTestClient.post()
-                .uri("/hub/auth/login")
+                .uri("/auth/login")
                 .header("X-Correlation-Id", "portal-auth-public")
                 .exchange()
                 .expectStatus().isOk()
@@ -84,9 +84,9 @@ class GatewaySecurityTest {
     }
 
     @Test
-    void allowsHubRefreshRouteWithoutJwt() {
+    void allowsRefreshRouteWithoutJwt() {
         webTestClient.post()
-                .uri("/hub/auth/refresh")
+                .uri("/auth/refresh")
                 .header("X-Correlation-Id", "portal-auth-refresh")
                 .exchange()
                 .expectStatus().isOk()
@@ -95,6 +95,20 @@ class GatewaySecurityTest {
                 .jsonPath("$.path").isEqualTo("/auth/refresh");
 
         assertThat(DOWNSTREAM.takeRequest().path()).isEqualTo("/auth/refresh");
+    }
+
+    @Test
+    void rejectsLegacyHubAuthenticationPathWhenJwtIsMissing() {
+        webTestClient.post()
+                .uri("/hub/auth/login")
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(401)
+                .jsonPath("$.error").isEqualTo("Unauthorized")
+                .jsonPath("$.path").isEqualTo("/hub/auth/login");
+
+        assertThat(DOWNSTREAM.pollRequest()).isNull();
     }
 
     @Test

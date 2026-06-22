@@ -9,12 +9,14 @@ package com.portal.conecta.gateway.config.route;
  * @param uri destino interno configurado por variavel de ambiente
  * @param order prioridade da rota quando dois padroes podem atender o mesmo caminho
  * @param rateLimitPolicy politica de rate limit aplicada depois da remocao do prefixo
+ * @param stripPrefixParts quantidade de segmentos externos removidos antes do encaminhamento
  */
 record GatewayRouteDefinition(
         String id,
         String path,
         String uri,
         int order,
-        RateLimitPolicy rateLimitPolicy
+        RateLimitPolicy rateLimitPolicy,
+        int stripPrefixParts
 ) {
 }

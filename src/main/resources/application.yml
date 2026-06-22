@@ -49,7 +49,7 @@ portal:
         - /actuator/health/**
         - /actuator/info
         - /actuator/prometheus
-        - /hub/auth/**
+        - /auth/**
     rate-limit:
       enabled: ${PORTAL_GATEWAY_RATE_LIMIT_ENABLED:false}
       authentication:

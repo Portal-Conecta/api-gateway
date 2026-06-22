@@ -39,7 +39,7 @@ public class GatewayRateLimitProperties {
     /**
      * Obtem a politica usada em endpoints publicos de autenticacao.
      *
-     * @return politica aplicada em `/hub/auth/**`
+     * @return politica aplicada em `/auth/**`
      */
     public Policy getAuthentication() {
         return authentication;

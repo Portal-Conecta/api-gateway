@@ -34,7 +34,7 @@ class RateLimiterConfigTest {
     @Test
     void fallsBackToForwardedIpWhenPrincipalIsMissing() {
         KeyResolver resolver = userKeyResolver();
-        ServerWebExchange exchange = exchange(request("/hub/auth/login")
+        ServerWebExchange exchange = exchange(request("/auth/login")
                 .header("X-Forwarded-For", "203.0.113.10, 198.51.100.20")
                 .build());
 
@@ -46,7 +46,7 @@ class RateLimiterConfigTest {
     @Test
     void resolvesIpRateLimitKeyFromForwardedHeader() {
         KeyResolver resolver = ipKeyResolver();
-        ServerWebExchange exchange = exchange(request("/hub/auth/login")
+        ServerWebExchange exchange = exchange(request("/auth/login")
                 .header("X-Forwarded-For", "203.0.113.20")
                 .build());
 

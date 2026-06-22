@@ -27,7 +27,7 @@ class GatewayRateLimitRouteTest {
 
         assertThat(routes)
                 .extracting(Route::getId)
-                .contains("hub-auth", "hub", "checklist", "mapa", "comunicados");
+                .contains("auth", "hub", "checklist", "mapa", "comunicados");
 
         assertThat(routes)
                 .allSatisfy(route -> assertThat(route.getFilters())

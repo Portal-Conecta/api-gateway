@@ -13,8 +13,8 @@ As regras de negocio e a autorizacao contextual continuam dentro dos servicos re
 
 | Tema | Responsabilidade do gateway |
 | --- | --- |
-| Roteamento publico | Publicar `/hub/**`, `/checklist/**`, `/mapa/**` e `/comunicados/**` |
-| Prefixo externo | Remover o primeiro segmento antes de encaminhar para o servico |
+| Roteamento publico | Publicar `/auth/**`, `/hub/**`, `/checklist/**`, `/mapa/**` e `/comunicados/**` |
+| Prefixo externo | Preservar `/auth/**` e remover o primeiro segmento das rotas de servico antes de encaminhar |
 | CORS | Usar `ALLOWED_ORIGINS` como lista de origens permitidas |
 | JWT | Validar token HS256 com `JWT_SECRET` e repassar `Authorization` |
 | Rate limit | Aplicar `RequestRateLimiter` com Redis quando `PORTAL_GATEWAY_RATE_LIMIT_ENABLED=true` |
@@ -37,7 +37,7 @@ As rotas ficam em `GatewayRouteConfig` para permitir filtros compartilhados e co
 
 | Route ID | Prefixo externo | Variavel de destino | Fallback local | Caminho encaminhado | Rate key |
 | --- | --- | --- | --- | --- | --- |
-| `hub-auth` | `/hub/auth/**` | `HUB_SERVICE_URL` | `http://localhost:8081` | remove `/hub` | IP |
+| `auth` | `/auth/**` | `HUB_SERVICE_URL` | `http://localhost:8081` | preserva `/auth` | IP |
 | `hub` | `/hub/**` | `HUB_SERVICE_URL` | `http://localhost:8081` | remove `/hub` | usuario |
 | `checklist` | `/checklist/**` | `CHECKLIST_SERVICE_URL` | `http://localhost:8082` | remove `/checklist` | usuario |
 | `mapa` | `/mapa/**` | `MAPA_SERVICE_URL` | `http://localhost:8083` | remove `/mapa` | usuario |
@@ -46,7 +46,7 @@ As rotas ficam em `GatewayRouteConfig` para permitir filtros compartilhados e co
 Exemplo:
 
 ```http
-POST /hub/auth/login
+POST /auth/login
 ```
 
 e encaminhado para:
@@ -69,8 +69,8 @@ POST /auth/login
 | `PORTAL_GATEWAY_RATE_LIMIT_ENABLED` | Liga/desliga rate limit por Redis | `false` local, `true` em prod |
 | `SPRING_DATA_REDIS_HOST` | Host Redis usado pelo rate limit | `localhost` |
 | `SPRING_DATA_REDIS_PORT` | Porta Redis usada pelo rate limit | `6379` |
-| `PORTAL_GATEWAY_AUTH_RATE_LIMIT_REPLENISH_RATE` | Tokens por segundo para `/hub/auth/**` | `5` |
-| `PORTAL_GATEWAY_AUTH_RATE_LIMIT_BURST_CAPACITY` | Pico permitido para `/hub/auth/**` | `10` |
+| `PORTAL_GATEWAY_AUTH_RATE_LIMIT_REPLENISH_RATE` | Tokens por segundo para `/auth/**` | `5` |
+| `PORTAL_GATEWAY_AUTH_RATE_LIMIT_BURST_CAPACITY` | Pico permitido para `/auth/**` | `10` |
 | `PORTAL_GATEWAY_USER_RATE_LIMIT_REPLENISH_RATE` | Tokens por segundo para rotas autenticadas | `30` |
 | `PORTAL_GATEWAY_USER_RATE_LIMIT_BURST_CAPACITY` | Pico permitido para rotas autenticadas | `60` |
 | `ALLOWED_ORIGINS` | Origens liberadas no CORS, separadas por virgula | `http://localhost:3000,http://localhost:5173` |
@@ -84,7 +84,7 @@ As URLs de destino devem ser definidas por ambiente. Os fallbacks existem apenas
 
 O gateway valida JWT HS256 usando o mesmo `JWT_SECRET` Base64 usado pelo Hub e pelos servicos.
 
-- `/hub/auth/**`, `/actuator/health`, `/actuator/info` e `/actuator/prometheus` sao publicos.
+- `/auth/**`, `/actuator/health`, `/actuator/info` e `/actuator/prometheus` sao publicos.
 - As demais rotas exigem `Authorization: Bearer <token>`.
 - O header `Authorization` valido e preservado para o servico de destino.
 - Desabilite apenas em desenvolvimento com `PORTAL_GATEWAY_SECURITY_ENABLED=false`.
@@ -93,7 +93,7 @@ O gateway valida JWT HS256 usando o mesmo `JWT_SECRET` Base64 usado pelo Hub e p
 
 O rate limit usa `RequestRateLimiter` do Spring Cloud Gateway com Redis.
 
-- `/hub/auth/**` usa chave por IP para proteger login e refresh.
+- `/auth/**` usa chave por IP para proteger login e refresh.
 - Rotas autenticadas usam chave por usuario a partir do claim `sub`.
 - Se o principal ainda nao existir ou o token nao trouxer usuario, a chave cai para IP.
 - `X-Forwarded-For` tem prioridade sobre o endereco remoto para ambientes com proxy.

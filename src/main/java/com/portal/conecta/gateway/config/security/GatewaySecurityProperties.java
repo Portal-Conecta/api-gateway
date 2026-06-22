@@ -17,7 +17,7 @@ public class GatewaySecurityProperties {
             "/actuator/health/**",
             "/actuator/info",
             "/actuator/prometheus",
-            "/hub/auth/**"
+            "/auth/**"
     );
 
     /**

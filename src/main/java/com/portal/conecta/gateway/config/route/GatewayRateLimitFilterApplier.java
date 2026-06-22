@@ -40,14 +40,16 @@ class GatewayRateLimitFilterApplier {
     }
 
     /**
-     * Aplica `StripPrefix=1` e, quando habilitado, o filtro Redis de rate limit.
+     * Aplica a remocao de prefixo configurada na rota e, quando habilitado, o
+     * filtro Redis de rate limit.
      *
      * @param filters builder de filtros da rota atual
      * @param rateLimitPolicy politica que define limites e chave da rota
-     * @return builder de filtros com prefixo removido e rate limit configurado
+     * @param stripPrefixParts quantidade de segmentos externos removidos antes do encaminhamento
+     * @return builder de filtros com prefixo tratado e rate limit configurado
      */
-    GatewayFilterSpec apply(GatewayFilterSpec filters, RateLimitPolicy rateLimitPolicy) {
-        GatewayFilterSpec filtered = filters.stripPrefix(1);
+    GatewayFilterSpec apply(GatewayFilterSpec filters, RateLimitPolicy rateLimitPolicy, int stripPrefixParts) {
+        GatewayFilterSpec filtered = stripPrefix(filters, stripPrefixParts);
 
         if (!rateLimitProperties.isEnabled()) {
             return filtered;
@@ -65,6 +67,24 @@ class GatewayRateLimitFilterApplier {
                         .setKeyResolver(keyResolver)
                         .setStatusCode(HttpStatus.TOO_MANY_REQUESTS)
                 .setDenyEmptyKey(true));
+    }
+
+    /**
+     * Remove prefixos publicos apenas quando a rota declara essa necessidade.
+     *
+     * <p>A autenticacao e publicada em `/auth/**` e deve chegar ao Hub com o
+     * mesmo caminho. Rotas de servico, como `/hub/**`, removem o primeiro
+     * segmento para preservar o contrato interno do servico.</p>
+     *
+     * @param filters builder de filtros da rota atual
+     * @param stripPrefixParts quantidade de segmentos removidos pelo filtro `StripPrefix`
+     * @return builder original ou builder com `StripPrefix` aplicado
+     */
+    private GatewayFilterSpec stripPrefix(GatewayFilterSpec filters, int stripPrefixParts) {
+        if (stripPrefixParts <= 0) {
+            return filters;
+        }
+        return filters.stripPrefix(stripPrefixParts);
     }
 
     /**

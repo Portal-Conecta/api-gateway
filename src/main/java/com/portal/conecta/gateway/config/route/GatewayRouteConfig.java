@@ -62,7 +62,11 @@ public class GatewayRouteConfig {
             builder.route(routeDefinition.id(), route -> route
                     .order(routeDefinition.order())
                     .path(routeDefinition.path())
-                    .filters(filters -> rateLimitFilterApplier.apply(filters, routeDefinition.rateLimitPolicy()))
+                    .filters(filters -> rateLimitFilterApplier.apply(
+                            filters,
+                            routeDefinition.rateLimitPolicy(),
+                            routeDefinition.stripPrefixParts()
+                    ))
                     .uri(routeDefinition.uri()));
         }
         return builder.build();
@@ -85,27 +89,30 @@ public class GatewayRouteConfig {
     ) {
         return List.of(
                 new GatewayRouteDefinition(
-                        "hub-auth",
-                        "/hub/auth/**",
+                        "auth",
+                        "/auth/**",
                         hubServiceUrl,
                         AUTH_ROUTE_ORDER,
-                        RateLimitPolicy.AUTHENTICATION
+                        RateLimitPolicy.AUTHENTICATION,
+                        0
                 ),
-                new GatewayRouteDefinition("hub", "/hub/**", hubServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER),
+                new GatewayRouteDefinition("hub", "/hub/**", hubServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1),
                 new GatewayRouteDefinition(
                         "checklist",
                         "/checklist/**",
                         checklistServiceUrl,
                         DEFAULT_ORDER,
-                        RateLimitPolicy.USER
+                        RateLimitPolicy.USER,
+                        1
                 ),
-                new GatewayRouteDefinition("mapa", "/mapa/**", mapaServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER),
+                new GatewayRouteDefinition("mapa", "/mapa/**", mapaServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1),
                 new GatewayRouteDefinition(
                         "comunicados",
                         "/comunicados/**",
                         comunicadosServiceUrl,
                         DEFAULT_ORDER,
-                        RateLimitPolicy.USER
+                        RateLimitPolicy.USER,
+                        1
                 )
         );
     }
