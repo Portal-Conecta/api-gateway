@@ -13,13 +13,27 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Emits one structured access log entry after each exchange completes.
+ * Emite um log de acesso estruturado ao final de cada troca HTTP.
  */
 @Component
 public class AccessLogWebFilter implements WebFilter, Ordered {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccessLogWebFilter.class);
 
+    /**
+     * Cria o filtro de log de acesso usado pela cadeia WebFlux.
+     */
+    public AccessLogWebFilter() {
+    }
+
+    /**
+     * Mede a duracao da troca HTTP e agenda o log operacional ao final da
+     * cadeia reativa, independentemente do resultado da requisicao.
+     *
+     * @param exchange contexto HTTP atual, usado para ler rota, status e headers
+     * @param chain proxima etapa da cadeia WebFlux
+     * @return sinal reativo que conclui depois da execucao da cadeia
+     */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         long startedAt = System.currentTimeMillis();
@@ -28,11 +42,24 @@ public class AccessLogWebFilter implements WebFilter, Ordered {
                 .doFinally(signalType -> logRequest(exchange, startedAt));
     }
 
+    /**
+     * Define a ordem do filtro para executar o log depois dos filtros que
+     * resolvem rota, status e correlation ID.
+     *
+     * @return menor prioridade padrao, mantendo o log no fim da cadeia
+     */
     @Override
     public int getOrder() {
         return Ordered.LOWEST_PRECEDENCE;
     }
 
+    /**
+     * Escreve um registro de acesso sem expor token, corpo da requisicao ou
+     * headers sensiveis.
+     *
+     * @param exchange contexto HTTP usado para montar os campos do log
+     * @param startedAt timestamp em milissegundos capturado antes da cadeia
+     */
     private void logRequest(ServerWebExchange exchange, long startedAt) {
         long durationMs = System.currentTimeMillis() - startedAt;
         HttpStatusCode statusCode = exchange.getResponse().getStatusCode();

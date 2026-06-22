@@ -14,8 +14,8 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 /**
- * Validates Hub-issued JWTs at the edge while preserving the Authorization
- * header for downstream services to enforce domain authorization.
+ * Valida na borda os JWTs emitidos pelo Hub e preserva o header
+ * {@code Authorization} para que os servicos apliquem autorizacao de dominio.
  */
 @Configuration
 @EnableWebFluxSecurity
@@ -26,6 +26,13 @@ public class GatewaySecurityConfig {
     private final GatewaySecurityProperties properties;
     private final ApiErrorResponseWriter apiErrorResponseWriter;
 
+    /**
+     * Recebe as propriedades de seguranca e o writer responsavel por respostas
+     * de erro no formato `ApiError`.
+     *
+     * @param properties configuracoes externas de seguranca do gateway
+     * @param apiErrorResponseWriter componente que escreve erros de autenticacao e autorizacao
+     */
     public GatewaySecurityConfig(
             GatewaySecurityProperties properties,
             ApiErrorResponseWriter apiErrorResponseWriter
@@ -34,6 +41,16 @@ public class GatewaySecurityConfig {
         this.apiErrorResponseWriter = apiErrorResponseWriter;
     }
 
+    /**
+     * Monta a cadeia de seguranca WebFlux do gateway.
+     *
+     * <p>Quando a seguranca esta desabilitada por ambiente, todas as rotas sao
+     * liberadas. Quando esta habilitada, apenas os caminhos publicos configurados
+     * podem passar sem JWT; as demais requisicoes exigem Bearer Token valido.</p>
+     *
+     * @param http builder de seguranca reativa fornecido pelo Spring Security
+     * @return cadeia de filtros de seguranca usada pelo WebFlux
+     */
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         ServerHttpSecurity serverHttpSecurity = http
@@ -75,6 +92,11 @@ public class GatewaySecurityConfig {
                 .build();
     }
 
+    /**
+     * Cria o decodificador JWT HS256 usado para validar tokens emitidos pelo Hub.
+     *
+     * @return decoder reativo configurado com o segredo compartilhado
+     */
     @Bean
     public ReactiveJwtDecoder reactiveJwtDecoder() {
         byte[] keyBytes = decodeSecret(properties.getJwtSecret());
@@ -86,8 +108,13 @@ public class GatewaySecurityConfig {
     }
 
     /**
-     * The Hub and downstream services share a Base64 encoded HS256 secret. Failing
-     * fast here prevents the gateway from accepting tokens with a different key.
+     * Decodifica o segredo HS256 compartilhado com Hub e servicos. A falha
+     * rapida evita que o gateway suba aceitando tokens assinados com chave
+     * diferente.
+     *
+     * @param secret segredo Base64 recebido por configuracao
+     * @return bytes decodificados do segredo HS256
+     * @throws IllegalStateException quando o segredo nao for Base64 ou tiver menos de 32 bytes
      */
     private byte[] decodeSecret(String secret) {
         byte[] keyBytes;

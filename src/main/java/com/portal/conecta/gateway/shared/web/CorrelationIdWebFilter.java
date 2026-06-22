@@ -11,16 +11,39 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Normalizes the correlation ID used by logs, responses, and downstream calls.
+ * Normaliza o correlation ID usado em logs, respostas e chamadas aos servicos.
  */
 @Component
 public class CorrelationIdWebFilter implements WebFilter, Ordered {
 
+    /**
+     * Nome do header HTTP usado para receber, propagar e devolver o correlation ID.
+     */
     public static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
+
+    /**
+     * Nome do atributo interno usado para compartilhar o correlation ID entre
+     * filtros do gateway.
+     */
     public static final String CORRELATION_ID_ATTRIBUTE = "correlationId";
     private static final int MAX_CORRELATION_ID_LENGTH = 128;
     private static final Pattern SAFE_CORRELATION_ID = Pattern.compile("^[A-Za-z0-9._:-]+$");
 
+    /**
+     * Cria o filtro que normaliza o correlation ID em todas as requisicoes.
+     */
+    public CorrelationIdWebFilter() {
+    }
+
+    /**
+     * Resolve o correlation ID da requisicao, registra o valor no contexto,
+     * adiciona o header na resposta e encaminha o mesmo header ao servico de
+     * destino.
+     *
+     * @param exchange contexto HTTP recebido pelo gateway
+     * @param chain proxima etapa da cadeia WebFlux
+     * @return sinal reativo da cadeia com a requisicao mutada
+     */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String correlationId = resolveCorrelationId(exchange);
@@ -35,11 +58,24 @@ public class CorrelationIdWebFilter implements WebFilter, Ordered {
         return chain.filter(exchange.mutate().request(request).build());
     }
 
+    /**
+     * Executa antes dos demais filtros para garantir que logs, erros e roteamento
+     * enxerguem o mesmo correlation ID.
+     *
+     * @return maior precedencia da cadeia WebFlux
+     */
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE;
     }
 
+    /**
+     * Valida o header recebido e gera um UUID quando o valor esta ausente,
+     * vazio, muito longo ou contem caracteres inseguros para logs.
+     *
+     * @param exchange contexto HTTP usado para ler `X-Correlation-Id`
+     * @return correlation ID seguro para propagacao e log
+     */
     private String resolveCorrelationId(ServerWebExchange exchange) {
         String candidate = exchange.getRequest().getHeaders().getFirst(CORRELATION_ID_HEADER);
 
