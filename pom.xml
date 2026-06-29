@@ -31,6 +31,13 @@
 		<spring-cloud.version>2025.1.1</spring-cloud.version>
 	</properties>
 
+	<repositories>
+		<repository>
+			<id>portal-logging</id>
+			<url>https://maven.pkg.github.com/Portal-Conecta/portal-logging</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
@@ -50,6 +57,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-json</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.portal.conecta</groupId>
+			<artifactId>portal-logging</artifactId>
+			<version>1.0.2</version>
 		</dependency>
 
 		<dependency>
