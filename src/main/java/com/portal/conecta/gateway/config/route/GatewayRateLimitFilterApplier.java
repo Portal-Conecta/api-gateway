@@ -57,6 +57,7 @@ class GatewayRateLimitFilterApplier {
     ) {
         GatewayFilterSpec filtered = stripPrefix(filters, stripPrefixParts);
         filtered = forwardedPrefix(filtered, forwardedPrefix);
+        filtered = swaggerLocationHeader(filtered, forwardedPrefix);
 
         if (!rateLimitProperties.isEnabled()) {
             return filtered;
@@ -106,6 +107,20 @@ class GatewayRateLimitFilterApplier {
             return filters;
         }
         return filters.setRequestHeader("X-Forwarded-Prefix", forwardedPrefix);
+    }
+
+    /**
+     * Mantem redirects da Swagger UI dentro do prefixo publico do Hub.
+     *
+     * @param filters builder de filtros da rota atual
+     * @param forwardedPrefix prefixo publico declarado pela rota
+     * @return builder original ou builder com reescrita de `Location`
+     */
+    private GatewayFilterSpec swaggerLocationHeader(GatewayFilterSpec filters, String forwardedPrefix) {
+        if (!"/hub".equals(forwardedPrefix)) {
+            return filters;
+        }
+        return filters.rewriteResponseHeader("Location", "^/swagger-ui/(.*)", "/hub/swagger-ui/$1");
     }
 
     /**

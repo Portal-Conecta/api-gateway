@@ -149,7 +149,6 @@ class GatewayRoutingTest {
                 Arguments.of("/hub/api/v1/notifications", "/api/v1/notifications"),
                 Arguments.of("/hub/v3/api-docs", "/v3/api-docs"),
                 Arguments.of("/hub/v3/api-docs/swagger-config", "/v3/api-docs/swagger-config"),
-                Arguments.of("/hub/swagger-ui.html", "/swagger-ui.html"),
                 Arguments.of("/hub/swagger-ui/index.html", "/swagger-ui/index.html"),
                 Arguments.of("/checklist/api/checklist-templates", "/api/checklist-templates"),
                 Arguments.of("/mapa/api/mapas", "/api/mapas"),
@@ -169,6 +168,20 @@ class GatewayRoutingTest {
 
         assertThat(request.path()).isEqualTo("/v3/api-docs");
         assertThat(request.forwardedPrefix()).isEqualTo("/hub");
+    }
+
+    @Test
+    void rewritesSwaggerUiRedirectLocationToHubPublicPath() {
+        webTestClient.get()
+                .uri("/hub/swagger-ui.html")
+                .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION)
+                .exchange()
+                .expectStatus().isFound()
+                .expectHeader().valueEquals(HttpHeaders.LOCATION, "/hub/swagger-ui/index.html");
+
+        RecordedRequest request = DOWNSTREAM.takeRequest();
+
+        assertThat(request.path()).isEqualTo("/swagger-ui.html");
     }
 
     private record RecordedRequest(String path, String authorization, String correlationId, String forwardedPrefix) {
@@ -221,6 +234,13 @@ class GatewayRoutingTest {
             String forwardedPrefix = exchange.getRequestHeaders().getFirst("X-Forwarded-Prefix");
 
             requests.add(new RecordedRequest(path, authorization, correlationId, forwardedPrefix));
+
+            if ("/swagger-ui.html".equals(path)) {
+                exchange.getResponseHeaders().set(HttpHeaders.LOCATION, "/swagger-ui/index.html");
+                exchange.sendResponseHeaders(302, -1);
+                exchange.close();
+                return;
+            }
 
             byte[] body = """
                     {"path":"%s","authorization":"%s","correlationId":"%s"}
