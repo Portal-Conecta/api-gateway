@@ -19,7 +19,8 @@ As regras de negocio e a autorizacao contextual continuam dentro dos servicos re
 | JWT | Validar token HS256 com `JWT_SECRET` e repassar `Authorization` |
 | Rate limit | Aplicar `RequestRateLimiter` com Redis quando `PORTAL_GATEWAY_RATE_LIMIT_ENABLED=true` |
 | Correlacao | Criar ou propagar `X-Correlation-Id` |
-| Logs | Registrar metodo, caminho, rota, status, duracao e correlation ID |
+| Tracing | Criar/continuar trace OTLP e propagar `traceparent`/`tracestate` para os servicos roteados |
+| Logs | Registrar metodo, caminho, rota, status, duracao, correlation ID, `traceId` e `spanId` |
 | Observabilidade | Expor health, info, metrics e Prometheus |
 | Erro proprio | Retornar `ApiError` quando o erro for gerado pelo gateway |
 
@@ -30,6 +31,8 @@ As regras de negocio e a autorizacao contextual continuam dentro dos servicos re
 - Acessar bancos de dados dos modulos.
 - Substituir validacoes de autorizacao dos servicos.
 - Reescrever payloads ou contratos dos servicos.
+- Instrumentar tracing dos servicos downstream (Hub Core, Checklist, Mapa de Sala, Comunicados).
+- Criar spans manuais de negocio.
 
 ## Mapa de rotas
 
@@ -77,6 +80,9 @@ POST /auth/login
 | `ALLOWED_METHODS` | Metodos HTTP liberados no CORS | `GET,POST,PUT,PATCH,DELETE,OPTIONS` |
 | `ALLOWED_HEADERS` | Headers aceitos no CORS | `Authorization,Content-Type,Accept,X-Correlation-Id` |
 | `PORTAL_ENVIRONMENT` | Ambiente usado em logs estruturados | `local` |
+| `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` | Percentual de requisicoes amostradas para tracing (0.0 a 1.0) | `1.0` |
+| `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | Endpoint OTLP HTTP de exportacao de traces | `http://localhost:4318/v1/traces` |
+| `MANAGEMENT_OPENTELEMETRY_TRACING_SAMPLER` | Estrategia de sampling do tracing | `parentbased_traceidratio` |
 
 As URLs de destino devem ser definidas por ambiente. Os fallbacks existem apenas para desenvolvimento local e nao devem ser usados como configuracao fixa de producao.
 
@@ -109,6 +115,44 @@ O gateway usa o header `X-Correlation-Id`.
 - O valor e encaminhado ao servico de destino.
 - O valor tambem volta na resposta.
 - Valores maiores que 128 caracteres ou com caracteres fora de `A-Z`, `a-z`, `0-9`, `.`, `_`, `:` e `-` sao descartados.
+
+O contrato de `X-Correlation-Id` nao muda com o tracing: os dois mecanismos coexistem. O `X-Correlation-Id` continua sendo o identificador de negocio usado em logs e suporte; `traceparent`/`traceId` sao o identificador tecnico usado para correlacionar spans no Tempo.
+
+## Tracing distribuido (OpenTelemetry)
+
+O gateway e o primeiro ponto de entrada das requisicoes externas. Ele cria ou continua o trace W3C recebido do cliente e propaga o contexto de tracing para o Hub Core e os demais servicos roteados, permitindo visualizar no Tempo um unico trace para o fluxo `cliente -> api-gateway -> hub`.
+
+- O nome do servico nos traces e `api-gateway` (resolvido automaticamente a partir de `spring.application.name`).
+- Os headers W3C Trace Context (`traceparent` e, quando presente na entrada, `tracestate`) sao propagados para o servico roteado sem necessidade de codigo manual: a instrumentacao e nativa do Spring Cloud Gateway + Micrometer Tracing.
+- Nenhum span de negocio e criado manualmente nesta issue; apenas os spans automaticos de entrada (HTTP server) e saida (proxy para o servico roteado).
+- `traceId` e `spanId` sao adicionados automaticamente aos logs estruturados do gateway quando ha um trace ativo, via MDC.
+- O corpo da requisicao, tokens, cookies, `Authorization` e e-mail nunca sao logados.
+
+### Variaveis de tracing
+
+Ver tabela completa em [Variaveis de ambiente](#variaveis-de-ambiente). As tres relevantes para tracing sao `MANAGEMENT_TRACING_SAMPLING_PROBABILITY`, `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` e `MANAGEMENT_OPENTELEMETRY_TRACING_SAMPLER`.
+
+Quando o gateway roda em container, aponte o endpoint OTLP para o host Docker:
+
+```powershell
+$env:MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT="http://host.docker.internal:4318/v1/traces"
+```
+
+### Validar tracing localmente
+
+```powershell
+# 1. Subir a stack de observabilidade (Alloy, Loki, Tempo, Grafana)
+# 2. Subir o gateway com tracing habilitado (valores padrao ja funcionam local)
+mvn spring-boot:run
+
+# 3. Fazer uma requisicao passando pelo gateway
+curl -H "X-Correlation-Id: gateway-trace-check" http://localhost:8080/hub/actuator/health
+```
+
+No Grafana:
+
+- Em **Explore > Tempo**, busque pelo servico `api-gateway` e confira o trace gerado pela requisicao acima.
+- Em **Explore > Loki**, busque pelos logs do gateway contendo `gateway-trace-check` e confira que `traceId` e `spanId` aparecem nos campos estruturados.
 
 ## Erros
 
@@ -178,5 +222,5 @@ mvn test
 Testes focados do gateway:
 
 ```powershell
-mvn test '-Dtest=GatewayRoutingTest,GatewaySecurityTest,GatewayRateLimitRouteTest,RateLimiterConfigTest'
+mvn test '-Dtest=GatewayRoutingTest,GatewaySecurityTest,GatewayRateLimitRouteTest,RateLimiterConfigTest,GatewayTracingPropagationTest'
 ```
