@@ -141,15 +141,50 @@ class GatewayRoutingTest {
                 Arguments.of("/auth/login", "/auth/login"),
                 Arguments.of("/auth/refresh", "/auth/refresh"),
                 Arguments.of("/hub/users", "/users"),
+                Arguments.of("/hub/courses", "/courses"),
+                Arguments.of("/hub/classes", "/classes"),
+                Arguments.of("/hub/rooms", "/rooms"),
+                Arguments.of("/hub/me", "/me"),
                 Arguments.of("/hub/me/courses", "/me/courses"),
                 Arguments.of("/hub/api/v1/notifications", "/api/v1/notifications"),
+                Arguments.of("/hub/v3/api-docs", "/v3/api-docs"),
+                Arguments.of("/hub/v3/api-docs/swagger-config", "/v3/api-docs/swagger-config"),
+                Arguments.of("/hub/swagger-ui/index.html", "/swagger-ui/index.html"),
                 Arguments.of("/checklist/api/checklist-templates", "/api/checklist-templates"),
                 Arguments.of("/mapa/api/mapas", "/api/mapas"),
                 Arguments.of("/comunicados/api/posts", "/api/posts")
         );
     }
 
-    private record RecordedRequest(String path, String authorization, String correlationId) {
+    @Test
+    void sendsForwardedPrefixWhenRoutingHubRequests() {
+        webTestClient.get()
+                .uri("/hub/v3/api-docs")
+                .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION)
+                .exchange()
+                .expectStatus().isOk();
+
+        RecordedRequest request = DOWNSTREAM.takeRequest();
+
+        assertThat(request.path()).isEqualTo("/v3/api-docs");
+        assertThat(request.forwardedPrefix()).isEqualTo("/hub");
+    }
+
+    @Test
+    void rewritesSwaggerUiRedirectLocationToHubPublicPath() {
+        webTestClient.get()
+                .uri("/hub/swagger-ui.html")
+                .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION)
+                .exchange()
+                .expectStatus().isFound()
+                .expectHeader().valueEquals(HttpHeaders.LOCATION, "/hub/swagger-ui/index.html");
+
+        RecordedRequest request = DOWNSTREAM.takeRequest();
+
+        assertThat(request.path()).isEqualTo("/swagger-ui.html");
+    }
+
+    private record RecordedRequest(String path, String authorization, String correlationId, String forwardedPrefix) {
     }
 
     private static final class StubDownstreamServer {
@@ -196,8 +231,16 @@ class GatewayRoutingTest {
             String path = exchange.getRequestURI().getRawPath();
             String authorization = exchange.getRequestHeaders().getFirst(HttpHeaders.AUTHORIZATION);
             String correlationId = exchange.getRequestHeaders().getFirst("X-Correlation-Id");
+            String forwardedPrefix = exchange.getRequestHeaders().getFirst("X-Forwarded-Prefix");
 
-            requests.add(new RecordedRequest(path, authorization, correlationId));
+            requests.add(new RecordedRequest(path, authorization, correlationId, forwardedPrefix));
+
+            if ("/swagger-ui.html".equals(path)) {
+                exchange.getResponseHeaders().set(HttpHeaders.LOCATION, "/swagger-ui/index.html");
+                exchange.sendResponseHeaders(302, -1);
+                exchange.close();
+                return;
+            }
 
             byte[] body = """
                     {"path":"%s","authorization":"%s","correlationId":"%s"}

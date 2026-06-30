@@ -46,10 +46,18 @@ class GatewayRateLimitFilterApplier {
      * @param filters builder de filtros da rota atual
      * @param rateLimitPolicy politica que define limites e chave da rota
      * @param stripPrefixParts quantidade de segmentos externos removidos antes do encaminhamento
+     * @param forwardedPrefix prefixo publico informado ao servico de destino
      * @return builder de filtros com prefixo tratado e rate limit configurado
      */
-    GatewayFilterSpec apply(GatewayFilterSpec filters, RateLimitPolicy rateLimitPolicy, int stripPrefixParts) {
+    GatewayFilterSpec apply(
+            GatewayFilterSpec filters,
+            RateLimitPolicy rateLimitPolicy,
+            int stripPrefixParts,
+            String forwardedPrefix
+    ) {
         GatewayFilterSpec filtered = stripPrefix(filters, stripPrefixParts);
+        filtered = forwardedPrefix(filtered, forwardedPrefix);
+        filtered = swaggerLocationHeader(filtered, forwardedPrefix);
 
         if (!rateLimitProperties.isEnabled()) {
             return filtered;
@@ -85,6 +93,34 @@ class GatewayRateLimitFilterApplier {
             return filters;
         }
         return filters.stripPrefix(stripPrefixParts);
+    }
+
+    /**
+     * Informa ao servico interno qual prefixo publico foi removido pelo gateway.
+     *
+     * @param filters builder de filtros da rota atual
+     * @param forwardedPrefix valor do header `X-Forwarded-Prefix`
+     * @return builder original ou builder com header configurado
+     */
+    private GatewayFilterSpec forwardedPrefix(GatewayFilterSpec filters, String forwardedPrefix) {
+        if (forwardedPrefix == null || forwardedPrefix.isBlank()) {
+            return filters;
+        }
+        return filters.setRequestHeader("X-Forwarded-Prefix", forwardedPrefix);
+    }
+
+    /**
+     * Mantem redirects da Swagger UI dentro do prefixo publico do Hub.
+     *
+     * @param filters builder de filtros da rota atual
+     * @param forwardedPrefix prefixo publico declarado pela rota
+     * @return builder original ou builder com reescrita de `Location`
+     */
+    private GatewayFilterSpec swaggerLocationHeader(GatewayFilterSpec filters, String forwardedPrefix) {
+        if (!"/hub".equals(forwardedPrefix)) {
+            return filters;
+        }
+        return filters.rewriteResponseHeader("Location", "^/swagger-ui/(.*)", "/hub/swagger-ui/$1");
     }
 
     /**

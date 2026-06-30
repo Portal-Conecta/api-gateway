@@ -17,6 +17,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
@@ -97,6 +99,24 @@ class GatewaySecurityTest {
         assertThat(DOWNSTREAM.takeRequest().path()).isEqualTo("/auth/refresh");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/hub/v3/api-docs",
+            "/hub/v3/api-docs/swagger-config",
+            "/hub/swagger-ui.html",
+            "/hub/swagger-ui/index.html"
+    })
+    void allowsHubDocumentationRoutesWithoutJwt(String path) {
+        webTestClient.get()
+                .uri(path)
+                .exchange()
+                .expectStatus().isOk();
+
+        RecordedRequest request = DOWNSTREAM.takeRequest();
+
+        assertThat(request.path()).isEqualTo(path.replaceFirst("^/hub", ""));
+    }
+
     @Test
     void rejectsLegacyHubAuthenticationPathWhenJwtIsMissing() {
         webTestClient.post()
@@ -126,6 +146,20 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void rejectsHubRoutesWhenJwtIsMissing() {
+        webTestClient.get()
+                .uri("/hub/users")
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(401)
+                .jsonPath("$.error").isEqualTo("Unauthorized")
+                .jsonPath("$.path").isEqualTo("/hub/users");
+
+        assertThat(DOWNSTREAM.pollRequest()).isNull();
+    }
+
+    @Test
     void forwardsProtectedRoutesWhenJwtIsValid() {
         String token = createToken("11111111-1111-1111-1111-111111111111");
 
@@ -141,6 +175,25 @@ class GatewaySecurityTest {
         RecordedRequest request = DOWNSTREAM.takeRequest();
 
         assertThat(request.path()).isEqualTo("/api/checklist-templates");
+        assertThat(request.authorization()).isEqualTo("Bearer " + token);
+    }
+
+    @Test
+    void forwardsHubRoutesWhenJwtIsValid() {
+        String token = createToken("22222222-2222-2222-2222-222222222222");
+
+        webTestClient.get()
+                .uri("/hub/users")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.path").isEqualTo("/users")
+                .jsonPath("$.authorization").isEqualTo("Bearer " + token);
+
+        RecordedRequest request = DOWNSTREAM.takeRequest();
+
+        assertThat(request.path()).isEqualTo("/users");
         assertThat(request.authorization()).isEqualTo("Bearer " + token);
     }
 

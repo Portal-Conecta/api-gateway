@@ -65,7 +65,8 @@ public class GatewayRouteConfig {
                     .filters(filters -> rateLimitFilterApplier.apply(
                             filters,
                             routeDefinition.rateLimitPolicy(),
-                            routeDefinition.stripPrefixParts()
+                            routeDefinition.stripPrefixParts(),
+                            routeDefinition.forwardedPrefix()
                     ))
                     .uri(routeDefinition.uri()));
         }
@@ -94,25 +95,28 @@ public class GatewayRouteConfig {
                         hubServiceUrl,
                         AUTH_ROUTE_ORDER,
                         RateLimitPolicy.AUTHENTICATION,
-                        0
+                        0,
+                        null
                 ),
-                new GatewayRouteDefinition("hub", "/hub/**", hubServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1),
+                new GatewayRouteDefinition("hub", "/hub/**", hubServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1, "/hub"),
                 new GatewayRouteDefinition(
                         "checklist",
                         "/checklist/**",
                         checklistServiceUrl,
                         DEFAULT_ORDER,
                         RateLimitPolicy.USER,
-                        1
+                        1,
+                        null
                 ),
-                new GatewayRouteDefinition("mapa", "/mapa/**", mapaServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1),
+                new GatewayRouteDefinition("mapa", "/mapa/**", mapaServiceUrl, DEFAULT_ORDER, RateLimitPolicy.USER, 1, null),
                 new GatewayRouteDefinition(
                         "comunicados",
                         "/comunicados/**",
                         comunicadosServiceUrl,
                         DEFAULT_ORDER,
                         RateLimitPolicy.USER,
-                        1
+                        1,
+                        null
                 )
         );
     }
