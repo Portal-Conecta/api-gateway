@@ -62,7 +62,7 @@
 		<dependency>
 			<groupId>com.portal.conecta</groupId>
 			<artifactId>portal-logging</artifactId>
-			<version>1.0.2</version>
+			<version>1.0.4</version>
 		</dependency>
 
 		<dependency>
@@ -79,6 +79,16 @@
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-otel</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-otlp</artifactId>
 		</dependency>
 
 	</dependencies>
