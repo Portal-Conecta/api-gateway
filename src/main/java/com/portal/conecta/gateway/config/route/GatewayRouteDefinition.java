@@ -10,6 +10,7 @@ package com.portal.conecta.gateway.config.route;
  * @param order prioridade da rota quando dois padroes podem atender o mesmo caminho
  * @param rateLimitPolicy politica de rate limit aplicada depois da remocao do prefixo
  * @param stripPrefixParts quantidade de segmentos externos removidos antes do encaminhamento
+ * @param forwardedPrefix prefixo publico enviado ao servico para montar links externos
  */
 record GatewayRouteDefinition(
         String id,
@@ -17,6 +18,7 @@ record GatewayRouteDefinition(
         String uri,
         int order,
         RateLimitPolicy rateLimitPolicy,
-        int stripPrefixParts
+        int stripPrefixParts,
+        String forwardedPrefix
 ) {
 }

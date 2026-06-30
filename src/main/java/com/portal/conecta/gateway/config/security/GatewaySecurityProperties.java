@@ -17,7 +17,11 @@ public class GatewaySecurityProperties {
             "/actuator/health/**",
             "/actuator/info",
             "/actuator/prometheus",
-            "/auth/**"
+            "/auth/**",
+            "/hub/v3/api-docs",
+            "/hub/v3/api-docs/**",
+            "/hub/swagger-ui.html",
+            "/hub/swagger-ui/**"
     );
 
     /**
