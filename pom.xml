@@ -62,7 +62,7 @@
 		<dependency>
 			<groupId>com.portal.conecta</groupId>
 			<artifactId>portal-logging</artifactId>
-			<version>1.0.2</version>
+			<version>1.0.4</version>
 		</dependency>
 
 		<dependency>
