@@ -97,8 +97,10 @@ management:
     propagation:
       type: W3C
   opentelemetry:
+    resource-attributes:
+      service.name: api-gateway
     tracing:
       export:
         otlp:
-          endpoint: ${MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
-      sampler: ${MANAGEMENT_OPENTELEMETRY_TRACING_SAMPLER:parentbased_traceidratio}
+          endpoint: ${MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT:${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}}
+      sampler: ${MANAGEMENT_OPENTELEMETRY_TRACING_SAMPLER:parent-based-trace-id-ratio}
