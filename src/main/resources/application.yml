@@ -11,6 +11,8 @@ logging:
         environment: ${PORTAL_ENVIRONMENT:local}
       rename:
         logger_name: logger
+      include:
+        mdc: true
   level:
     org.springframework.cloud.gateway: INFO
 
@@ -97,6 +99,8 @@ management:
     propagation:
       type: W3C
   opentelemetry:
+    resource-attributes:
+      service.name: ${spring.application.name}
     tracing:
       export:
         otlp:
