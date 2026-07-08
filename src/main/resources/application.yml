@@ -90,6 +90,10 @@ management:
     metrics:
       export:
         enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: ${MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED:false}
   metrics:
     tags:
       service: ${spring.application.name}
