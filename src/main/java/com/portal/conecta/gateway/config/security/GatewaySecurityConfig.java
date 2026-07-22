@@ -22,6 +22,8 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 public class GatewaySecurityConfig {
 
     private static final int MIN_HS256_KEY_BYTES = 32;
+    private static final int MIN_HS384_KEY_BYTES = 48;
+    private static final int MIN_HS512_KEY_BYTES = 64;
 
     private final GatewaySecurityProperties properties;
     private final ApiErrorResponseWriter apiErrorResponseWriter;
@@ -93,27 +95,29 @@ public class GatewaySecurityConfig {
     }
 
     /**
-     * Cria o decodificador JWT HS256 usado para validar tokens emitidos pelo Hub.
+     * Cria o decodificador JWT com o mesmo algoritmo HMAC que o Hub escolhe
+     * para o tamanho da chave configurada.
      *
      * @return decoder reativo configurado com o segredo compartilhado
      */
     @Bean
     public ReactiveJwtDecoder reactiveJwtDecoder() {
         byte[] keyBytes = decodeSecret(properties.getJwtSecret());
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+        HmacConfiguration hmacConfiguration = hmacConfigurationFor(keyBytes.length);
+        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, hmacConfiguration.jcaAlgorithm());
 
         return NimbusReactiveJwtDecoder.withSecretKey(secretKey)
-                .macAlgorithm(MacAlgorithm.HS256)
+                .macAlgorithm(hmacConfiguration.macAlgorithm())
                 .build();
     }
 
     /**
-     * Decodifica o segredo HS256 compartilhado com Hub e servicos. A falha
+     * Decodifica o segredo HMAC compartilhado com Hub e servicos. A falha
      * rapida evita que o gateway suba aceitando tokens assinados com chave
      * diferente.
      *
      * @param secret segredo Base64 recebido por configuracao
-     * @return bytes decodificados do segredo HS256
+     * @return bytes decodificados do segredo HMAC
      * @throws IllegalStateException quando o segredo nao for Base64 ou tiver menos de 32 bytes
      */
     private byte[] decodeSecret(String secret) {
@@ -129,5 +133,18 @@ public class GatewaySecurityConfig {
         }
 
         return keyBytes;
+    }
+
+    private HmacConfiguration hmacConfigurationFor(int keyLength) {
+        if (keyLength >= MIN_HS512_KEY_BYTES) {
+            return new HmacConfiguration("HmacSHA512", MacAlgorithm.HS512);
+        }
+        if (keyLength >= MIN_HS384_KEY_BYTES) {
+            return new HmacConfiguration("HmacSHA384", MacAlgorithm.HS384);
+        }
+        return new HmacConfiguration("HmacSHA256", MacAlgorithm.HS256);
+    }
+
+    private record HmacConfiguration(String jcaAlgorithm, MacAlgorithm macAlgorithm) {
     }
 }

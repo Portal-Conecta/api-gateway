@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class GatewaySecurityProperties {
 
     private boolean enabled = true;
-    private String jwtSecret = "ZGV2LXNlY3JldC1rZXktMzItYnl0ZXMtbWluaW11bS1mb3ItaHMyNTY=";
+    private String jwtSecret;
     private List<String> publicPaths = List.of(
             "/actuator/health",
             "/actuator/health/**",
@@ -25,7 +25,8 @@ public class GatewaySecurityProperties {
     );
 
     /**
-     * Cria as propriedades de seguranca com defaults locais.
+     * Cria as propriedades de seguranca. O segredo JWT deve ser informado por
+     * {@code JWT_SECRET}.
      */
     public GatewaySecurityProperties() {
     }

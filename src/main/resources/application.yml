@@ -45,7 +45,7 @@ portal:
   gateway:
     security:
       enabled: ${PORTAL_GATEWAY_SECURITY_ENABLED:true}
-      jwt-secret: ${JWT_SECRET:ZGV2LXNlY3JldC1rZXktMzItYnl0ZXMtbWluaW11bS1mb3ItaHMyNTY=}
+      jwt-secret: ${JWT_SECRET}
       public-paths:
         - /actuator/health
         - /actuator/health/**
