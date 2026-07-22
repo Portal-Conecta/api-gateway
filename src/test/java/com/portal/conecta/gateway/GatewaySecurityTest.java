@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GatewaySecurityTest {
 
-    static final String JWT_SECRET = "dGVzdC1zZWNyZXQta2V5LTMyLWJ5dGVzLW1pbmltdW0hIQ==";
+    static final String JWT_SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVm";
 
     private static final StubDownstreamServer DOWNSTREAM = StubDownstreamServer.start();
 
@@ -215,14 +215,14 @@ class GatewaySecurityTest {
     private static String createToken(String subject) {
         try {
             long now = Instant.now().getEpochSecond();
-            String header = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+            String header = "{\"alg\":\"HS384\",\"typ\":\"JWT\"}";
             String payload = """
                     {"sub":"%s","iat":%d,"exp":%d}
                     """.formatted(subject, now, now + 900);
             String unsignedToken = base64Url(header) + "." + base64Url(payload);
 
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(Base64.getDecoder().decode(JWT_SECRET), "HmacSHA256"));
+            Mac mac = Mac.getInstance("HmacSHA384");
+            mac.init(new SecretKeySpec(Base64.getDecoder().decode(JWT_SECRET), "HmacSHA384"));
             String signature = Base64.getUrlEncoder()
                     .withoutPadding()
                     .encodeToString(mac.doFinal(unsignedToken.getBytes(StandardCharsets.UTF_8)));
